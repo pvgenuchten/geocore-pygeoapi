@@ -1,1 +1,2 @@
+-e git+https://github.com/geopython/pygeoapi.git@master#egg=pygeoapi
 requests
