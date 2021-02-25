@@ -26,6 +26,8 @@ DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?
 
 LOGGER = logging.getLogger(__name__)
 
+# Set language globally
+lang = "en"
 
 @dataclass
 class Queryable:
@@ -229,6 +231,8 @@ class GeoCoreProvider(BaseProvider):
 
     def _to_geojson(self, json_obj, limit, skip_geometry=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
+        global lang
+
         features = []
         num_matched = None
 
@@ -280,6 +284,35 @@ class GeoCoreProvider(BaseProvider):
             else:
                 LOGGER.debug('record has no coordinates: '
                              'cannot set geometry and extent')
+
+            # Remove options and convert to associations
+            options = item.pop('options', [])
+            for opt in options:
+                url = opt.get('url')
+                title = opt.get('name', {}).get(lang)
+                type_ = opt.get('protocol')
+                rel = 'item'
+                i18n = lang
+                desc = opt.get('description', {}).get(lang, '')
+                if desc and desc.count(';') == 2:
+                    # TODO: retrieve mime type from URL or lookup
+                    type_, rel, i18n = desc.split(';')
+                if not (type_ and url):
+                    # Do not add links without a type or URL
+                    continue
+                lnk = {
+                    'href': url,
+                    'type': type_,
+                    'rel': rel,
+                    'title': title,
+                    'hreflang': i18n.lower()
+                }
+                item.setdefault('associations', []).append(lnk)
+
+            # Remove graphicOverview and promote/set first thumbnailUrl
+            url = item.pop('graphicOverview', [{}])[0].get('overviewfilename')
+            if url:
+                item['thumbnailUrl'] = url
 
             # Set properties and add to feature list
             feature['properties'] = item
