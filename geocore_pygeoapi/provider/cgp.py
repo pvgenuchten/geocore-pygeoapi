@@ -5,6 +5,7 @@ import logging
 from re import compile
 from uuid import UUID
 from datetime import datetime
+from dataclasses import dataclass, field
 
 import requests
 
@@ -24,6 +25,13 @@ JSON_REGEX = {
 DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?(\d{0,2})')  # noqa
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class Queryable:
+    type: str = 'string'
+    separator: str = '|'
+    enum: tuple = field(default_factory=tuple)
 
 
 class GeoCoreProvider(BaseProvider):
@@ -52,6 +60,9 @@ class GeoCoreProvider(BaseProvider):
             LOGGER.warning(f'No endpoint mapping found for {self.name} provider: using defaults')  # noqa
         self._query_url = f'{self._baseurl}{mapping.get(self.query.__name__, "geo")}'  # noqa
         self._get_url = f'{self._baseurl}{mapping.get(self.get.__name__, "id")}'
+
+        LOGGER.debug('grabbing field information')
+        self.fields = self.get_fields()
 
     @property
     def _iswin(self):
@@ -86,8 +97,14 @@ class GeoCoreProvider(BaseProvider):
             result = json.loads(json_str)
         except json.JSONDecodeError as err:
             LOGGER.error('Failed to parse JSON response', exc_info=err)
-        finally:
             return result
+
+        # check if geoCore's response has Items or an error
+        if 'Items' not in result:
+            error = result.get('errorMessage', 'missing Items object')
+            raise ProviderInvalidQueryError(error)
+
+        return result
 
     @staticmethod
     def _valid_id(identifier):
@@ -128,7 +145,6 @@ class GeoCoreProvider(BaseProvider):
             raise ProviderConnectionError(
                 f'failed to connect to {response.url if response else url}')
 
-        LOGGER.debug(response.text)
         return self._parse_json(response.text)
 
     @staticmethod
@@ -214,6 +230,7 @@ class GeoCoreProvider(BaseProvider):
     def _to_geojson(self, json_obj, limit, skip_geometry=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
         features = []
+        num_matched = None
 
         for item in json_obj.get('Items', []):
             feature = {
@@ -228,6 +245,9 @@ class GeoCoreProvider(BaseProvider):
                 continue
             feature['id'] = id_
             item['externalId'] = id_
+
+            # Pop 'total' value for numberMatched property (for paging)
+            num_matched = int(item.pop('total', 0))
 
             # Rename and set/fix date properties
             date_created = self._asisodate(item.get('created'))
@@ -272,12 +292,52 @@ class GeoCoreProvider(BaseProvider):
             return features[0]
 
         LOGGER.debug('returning feature collection')
-        return {
+        collection = {
             'type': 'FeatureCollection',
             'features': features,
-            'numberMatched': limit,
-            'numberReturned': len(features),
+            'numberReturned': len(features)
         }
+        LOGGER.debug(f'provider said there are {num_matched} matches')
+        if num_matched:
+            collection['numberMatched'] = num_matched
+        return collection
+
+    @property
+    def _queryables(self):
+        """ Internal property to retrieve Queryable definitions.
+
+        TODO: Ideally, this should be pulled from some kind of config file
+              or (even better) the geoCore API itself.
+
+        :returns:   A dict of {name: Queryable}
+        """
+        return {
+            'theme': Queryable(
+                enum=(
+                    'administration',
+                    'economy',
+                    'environment',
+                    'imagery',
+                    'infrastructure',
+                    'science',
+                    'society',
+                    'legal',
+                    'emergency'
+                )),
+            'org': Queryable()
+            # TODO: "type" and "foundational" do not yet seem to work properly,
+            #       and no fields support multiple values (yet)
+        }
+
+    def get_fields(self):
+        """
+        Get geoCore queryable field info (names, types).
+        TODO: For now, pygeoapi only supports displaying name an type.
+              Ideally, the allowed values (enum) should also be shown.
+
+        :returns: dict of fields
+        """
+        return {k: v.type for k, v in self._queryables.items()}
 
     def query(self, startindex=0, limit=10, resulttype='results',
               bbox=[], datetime_=None, properties=[], sortby=[],
@@ -321,10 +381,21 @@ class GeoCoreProvider(BaseProvider):
         params['min'] = startindex + 1
         params['max'] = startindex + limit
 
+        # Set queryables
+        if properties:
+            LOGGER.debug(f'Adding queryables: {properties}')
+            for k, v in properties:
+                params[k] = v
+
+        # Set text-based search
+        if q is not None:
+            LOGGER.debug(f'Adding free-text search: {q}')
+            params['keyword'] = q
+
         LOGGER.debug(f'querying {self._query_url}')
         json_obj = self._request_json(self._query_url, params)
 
-        LOGGER.debug(f'turn geoCore JSON into GeoJSON')
+        LOGGER.debug('turn geoCore JSON into GeoJSON')
         return self._to_geojson(json_obj, limit, skip_geometry)
 
     def get(self, identifier):
@@ -351,7 +422,7 @@ class GeoCoreProvider(BaseProvider):
         if not json_obj.get('Items', []):
             raise ProviderItemNotFoundError(f'record id {identifier} not found')
 
-        LOGGER.debug(f'turn geoCore JSON into GeoJSON')
+        LOGGER.debug('turn geoCore JSON into GeoJSON')
         return self._to_geojson(json_obj, 1)
 
     def __repr__(self):
