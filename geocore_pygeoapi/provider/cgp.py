@@ -26,6 +26,7 @@ DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?
 
 LOGGER = logging.getLogger(__name__)
 
+lang = "en"
 
 @dataclass
 class Queryable:
@@ -280,6 +281,34 @@ class GeoCoreProvider(BaseProvider):
             else:
                 LOGGER.debug('record has no coordinates: '
                              'cannot set geometry and extent')
+            if item['options']:
+                item['associations'] = []
+                for opt in item['options']:
+                    try:
+                        type = opt.get('description').get(lang).split(';')[1].lower()
+                    except KeyError:
+                        type = opt.get('protocol')
+                    try:
+                        l = opt.get('description').get(lang).split(';')[2]
+                    except KeyError:
+                        l = lang
+                    try:
+                        rel = opt.get('description').get(lang).split(';')[0].lower()
+                    except KeyError:
+                        rel = 'item'
+                    lnk = {
+                        'href': opt.get('url'),
+                        'type': type,
+                        'rel': rel,
+                        'title': opt.get('name').get(lang),
+                        'hreflang': l
+                    }
+                    item['associations'].append(lnk)
+                item.pop('options', None)
+            
+            if item['graphicOverview'] and len(item['graphicOverview']) > 0 and item['graphicOverview'][0]['overviewfilename']:
+                item['thumbnailUri'] = item['graphicOverview'][0]['overviewfilename']
+                item.pop('graphicOverview', None)
 
             # Set properties and add to feature list
             feature['properties'] = item
