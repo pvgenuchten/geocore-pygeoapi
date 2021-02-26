@@ -26,6 +26,7 @@ DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?
 
 LOGGER = logging.getLogger(__name__)
 
+# Set language globally
 lang = "en"
 
 @dataclass
@@ -230,6 +231,8 @@ class GeoCoreProvider(BaseProvider):
 
     def _to_geojson(self, json_obj, limit, skip_geometry=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
+        global lang
+
         features = []
         num_matched = None
 
@@ -281,34 +284,34 @@ class GeoCoreProvider(BaseProvider):
             else:
                 LOGGER.debug('record has no coordinates: '
                              'cannot set geometry and extent')
-            if item['options']:
-                item['associations'] = []
-                for opt in item['options']:
-                    try:
-                        type = opt.get('description').get(lang).split(';')[1].lower()
-                    except KeyError:
-                        type = opt.get('protocol')
-                    try:
-                        l = opt.get('description').get(lang).split(';')[2]
-                    except KeyError:
-                        l = lang
-                    try:
-                        rel = opt.get('description').get(lang).split(';')[0].lower()
-                    except KeyError:
-                        rel = 'item'
-                    lnk = {
-                        'href': opt.get('url'),
-                        'type': type,
-                        'rel': rel,
-                        'title': opt.get('name').get(lang),
-                        'hreflang': l
-                    }
-                    item['associations'].append(lnk)
-                item.pop('options', None)
-            
-            if item['graphicOverview'] and len(item['graphicOverview']) > 0 and item['graphicOverview'][0]['overviewfilename']:
-                item['thumbnailUri'] = item['graphicOverview'][0]['overviewfilename']
-                item.pop('graphicOverview', None)
+
+            # Remove options and convert to associations
+            options = item.pop('options', [])
+            for opt in options:
+                url = opt.get('url')
+                title = opt.get('name', {}).get(lang)
+                type_ = opt.get('protocol')
+                rel = 'item'
+                i18n = lang
+                desc = opt.get('description', {}).get(lang, '')
+                if desc and desc.count(';') == 2:
+                    type_, rel, i18n = (v.lower() for v in desc.split(';'))
+                if not (type_ and url):
+                    # Do not add links without a type or URL
+                    continue
+                lnk = {
+                    'href': url,
+                    'type': type_,
+                    'rel': rel,
+                    'title': title,
+                    'hreflang': i18n
+                }
+                item.setdefault('associations', []).append(lnk)
+
+            # Remove graphicOverview and promote/set first thumbnailUrl
+            url = item.pop('graphicOverview', [{}])[0].get('overviewfilename')
+            if url:
+                item['thumbnailUrl'] = url
 
             # Set properties and add to feature list
             feature['properties'] = item
