@@ -3,9 +3,7 @@ import json
 import codecs
 import logging
 from re import compile
-from uuid import UUID
 from datetime import datetime
-from dataclasses import dataclass, field
 
 import requests
 
@@ -26,14 +24,8 @@ DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?
 
 LOGGER = logging.getLogger(__name__)
 
-# Set language globally
+# Set language globally (TODO)
 lang = "en"
-
-@dataclass
-class Queryable:
-    type: str = 'string'
-    separator: str = '|'
-    enum: tuple = field(default_factory=tuple)
 
 
 class GeoCoreProvider(BaseProvider):
@@ -63,8 +55,9 @@ class GeoCoreProvider(BaseProvider):
         self._query_url = f'{self._baseurl}{mapping.get(self.query.__name__, "geo")}'  # noqa
         self._get_url = f'{self._baseurl}{mapping.get(self.get.__name__, "id")}'
 
-        LOGGER.debug('grabbing field information')
-        self.fields = self.get_fields()
+        LOGGER.debug('get queryable field info')
+        self.fields = self.data.get('queryables', {})
+        LOGGER.debug(f'Queryables: {self.fields}')
 
     @property
     def _iswin(self):
@@ -324,43 +317,6 @@ class GeoCoreProvider(BaseProvider):
             collection['numberMatched'] = num_matched
         return collection
 
-    @property
-    def _queryables(self):
-        """ Internal property to retrieve Queryable definitions.
-
-        TODO: Ideally, this should be pulled from some kind of config file
-              or (even better) the geoCore API itself.
-
-        :returns:   A dict of {name: Queryable}
-        """
-        return {
-            'theme': Queryable(
-                enum=(
-                    'administration',
-                    'economy',
-                    'environment',
-                    'imagery',
-                    'infrastructure',
-                    'science',
-                    'society',
-                    'legal',
-                    'emergency'
-                )),
-            'org': Queryable()
-            # TODO: "type" and "foundational" do not yet seem to work properly,
-            #       and no fields support multiple values (yet)
-        }
-
-    def get_fields(self):
-        """
-        Get geoCore queryable field info (names, types).
-        TODO: For now, pygeoapi only supports displaying name an type.
-              Ideally, the allowed values (enum) should also be shown.
-
-        :returns: dict of fields
-        """
-        return {k: v.type for k, v in self._queryables.items()}
-
     def query(self, startindex=0, limit=10, resulttype='results',
               bbox=[], datetime_=None, properties=[], sortby=[],
               select_properties=[], skip_geometry=False, q=None):
@@ -429,11 +385,6 @@ class GeoCoreProvider(BaseProvider):
         :raises:    ProviderInvalidQueryError if identifier is invalid
                     ProviderItemNotFoundError if identifier was not found
         """
-        LOGGER.debug('validating identifier')
-        if not self._valid_id(identifier):
-            raise ProviderInvalidQueryError(
-                f'{identifier} is not a valid UUID identifier')
-
         params = {
             'id': identifier
         }
