@@ -109,15 +109,6 @@ class GeoCoreProvider(BaseProvider):
         return result
 
     @staticmethod
-    def _valid_id(identifier):
-        """ Returns True if the given identifier is a valid UUID. """
-        try:
-            str(UUID(identifier))
-        except (TypeError, ValueError, AttributeError):
-            return False
-        return True
-
-    @staticmethod
     def _asisodate(value):
         """ Returns an ISO formatted timestamp (with Z suffix) from a string.
         If the given value can't be turned into a date, `None` will be returned.
@@ -244,8 +235,8 @@ class GeoCoreProvider(BaseProvider):
 
             # Get ID and validate it
             id_ = item.pop('id', None)
-            if not self._valid_id(id_):
-                LOGGER.warning(f'skipped record with ID {id_}: not a UUID')
+            if id_ is None:
+                LOGGER.warning(f'skipped record without ID')
                 continue
             feature['id'] = id_
             item['externalId'] = id_
@@ -318,9 +309,7 @@ class GeoCoreProvider(BaseProvider):
             feature['properties'] = item
             features.append(feature)
 
-        if not features:
-            raise ProviderNoDataError('query returned nothing')
-        elif limit == 1:
+        if features and limit == 1:
             LOGGER.debug('returning single feature')
             return features[0]
 
