@@ -294,9 +294,11 @@ class GeoCoreProvider(BaseProvider):
                 item.setdefault('associations', []).append(lnk)
 
             # Remove graphicOverview and promote/set first thumbnailUrl
-            url = item.pop('graphicOverview', [{}])[0].get('overviewfilename')
-            if url:
+            try:
+                url = item.pop('graphicOverview')[0].get('overviewfilename')
                 item['thumbnailUrl'] = url
+            except (KeyError, IndexError, AttributeError):
+                LOGGER.warning('could not find overview thumbnail')
 
             # Set properties and add to feature list
             feature['properties'] = item
