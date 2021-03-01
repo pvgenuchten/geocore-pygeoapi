@@ -280,7 +280,7 @@ class GeoCoreProvider(BaseProvider):
                 desc = opt.get('description', {}).get(lang, '')
                 if desc and desc.count(';') == 2:
                     # TODO: retrieve mime type from URL or lookup
-                    type_, rel, i18n = desc.split(';')
+                    rel, type_, i18n = desc.split(';')
                 if not (type_ and url):
                     # Do not add links without a type or URL
                     continue
@@ -368,7 +368,7 @@ class GeoCoreProvider(BaseProvider):
                 params[k] = v
 
         # Set text-based search
-        if q is not None:
+        if q:
             LOGGER.debug(f'Adding free-text search: {q}')
             params['keyword'] = q
 
