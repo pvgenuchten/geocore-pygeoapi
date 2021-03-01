@@ -213,7 +213,7 @@ class GeoCoreProvider(BaseProvider):
             }
         }
 
-    def _to_geojson(self, json_obj, limit, skip_geometry=False):
+    def _to_geojson(self, json_obj, skip_geometry=False, single_feature=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
         global lang
 
@@ -304,7 +304,7 @@ class GeoCoreProvider(BaseProvider):
             feature['properties'] = item
             features.append(feature)
 
-        if features and limit == 1:
+        if features and single_feature == 1:
             LOGGER.debug('returning single feature')
             return features[0]
 
@@ -376,16 +376,15 @@ class GeoCoreProvider(BaseProvider):
         json_obj = self._request_json(self._query_url, params)
 
         LOGGER.debug('turn geoCore JSON into GeoJSON')
-        return self._to_geojson(json_obj, limit, skip_geometry)
+        return self._to_geojson(json_obj, skip_geometry)
 
     def get(self, identifier):
         """ Request a single geoCore record by ID.
 
-        :param identifier:  The UUID of the record to retrieve.
+        :param identifier:  The ID of the record to retrieve.
 
         :returns:   dict containing 1 GeoJSON feature
-        :raises:    ProviderInvalidQueryError if identifier is invalid
-                    ProviderItemNotFoundError if identifier was not found
+        :raises:    ProviderItemNotFoundError if identifier was not found
         """
         params = {
             'id': identifier
@@ -398,7 +397,7 @@ class GeoCoreProvider(BaseProvider):
             raise ProviderItemNotFoundError(f'record id {identifier} not found')
 
         LOGGER.debug('turn geoCore JSON into GeoJSON')
-        return self._to_geojson(json_obj, 1)
+        return self._to_geojson(json_obj, single_feature=True)
 
     def __repr__(self):
         return f'<{self.__class__.__name__}> {self.data}'
