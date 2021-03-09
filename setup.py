@@ -87,7 +87,7 @@ setup(
     maintainer='Plateforme Géospatiale Canadienne (PGC) / Canadian Geospatial Platform (CGP)',  # noqa
     maintainer_email='',  # TODO
     url='https://github.com/Canadian-Geospatial-Platform/geocore-pygeoapi',
-    install_requires=read('requirements.txt').splitlines(),
+#    install_requires=read('requirements.txt').splitlines(),
     packages=find_packages(),
     include_package_data=True,
     classifiers=[

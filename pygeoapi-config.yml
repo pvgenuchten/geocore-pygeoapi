@@ -39,19 +39,19 @@ server:
     pretty_print: true
     limit: 10
     # templates:
-      # path: /path/to/Jinja2/templates
-      # static: /path/to/static/folder # css/js/img
+    # path: /path/to/Jinja2/templates
+    # static: /path/to/static/folder # css/js/img
     map:
         url: https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png
         attribution: '<a href="https://wikimediafoundation.org/wiki/Maps_Terms_of_Use">Wikimedia maps</a> | Map data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
-#    manager:
-#        name: TinyDB
-#        connection: /tmp/pygeoapi-process-manager.db
-#        output_dir: /tmp/
+    #    manager:
+    #        name: TinyDB
+    #        connection: /tmp/pygeoapi-process-manager.db
+    #        output_dir: /tmp/
     # ogc_schemas_location: /opt/schemas.opengis.net
 
 logging:
-    level: DEBUG
+    level: ERROR
     #logfile: /tmp/pygeoapi.log
 
 metadata:
@@ -96,36 +96,36 @@ resources:
             - observations
             - monitoring
         context:
-            - datetime: https://schema.org/DateTime
-            - vocab: https://example.com/vocab#
-              stn_id: "vocab:stn_id"
-              value: "vocab:value"
+            -   datetime: https://schema.org/DateTime
+            -   vocab: https://example.com/vocab#
+                stn_id: "vocab:stn_id"
+                value: "vocab:value"
         links:
-            - type: text/csv
-              rel: canonical
-              title: data
-              href: https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv
-              hreflang: en-US
-            - type: text/csv
-              rel: alternate
-              title: data
-              href: https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv
-              hreflang: en-US
+            -   type: text/csv
+                rel: canonical
+                title: data
+                href: https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv
+                hreflang: en-US
+            -   type: text/csv
+                rel: alternate
+                title: data
+                href: https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv
+                hreflang: en-US
         extents:
             spatial:
-                bbox: [-180,-90,180,90]
+                bbox: [ -180,-90,180,90 ]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
             temporal:
                 begin: 2000-10-30T18:24:39Z
                 end: 2007-10-30T08:57:29Z
         providers:
-            - type: feature
-              name: CSV
-              data: tests/data/obs.csv
-              id_field: id
-              geometry:
-                  x_field: long
-                  y_field: lat
+            -   type: feature
+                name: CSV
+                data: tests/data/obs.csv
+                id_field: id
+                geometry:
+                    x_field: long
+                    y_field: lat
 
     lakes:
         type: collection
@@ -134,24 +134,24 @@ resources:
         keywords:
             - lakes
         links:
-            - type: text/html
-              rel: canonical
-              title: information
-              href: http://www.naturalearthdata.com/
-              hreflang: en-US
+            -   type: text/html
+                rel: canonical
+                title: information
+                href: http://www.naturalearthdata.com/
+                hreflang: en-US
         extents:
             spatial:
-                bbox: [-180,-90,180,90]
+                bbox: [ -180,-90,180,90 ]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
             temporal:
                 begin: 2011-11-11
                 end: null  # or empty (either means open ended)
         providers:
-            - type: feature
-              name: GeoJSON
-              data: tests/data/ne_110m_lakes.geojson
-              id_field: id
-              title_field: name
+            -   type: feature
+                name: GeoJSON
+                data: tests/data/ne_110m_lakes.geojson
+                id_field: id
+                title_field: name
 
     gdps-temperature:
         type: collection
@@ -162,23 +162,23 @@ resources:
             - global
         extents:
             spatial:
-                bbox: [-180,-90,180,90]
+                bbox: [ -180,-90,180,90 ]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
         links:
-            - type: text/html
-              rel: canonical
-              title: information
-              href: https://eccc-msc.github.io/open-data/msc-data/nwp_gdps/readme_gdps_en
-              hreflang: en-CA
+            -   type: text/html
+                rel: canonical
+                title: information
+                href: https://eccc-msc.github.io/open-data/msc-data/nwp_gdps/readme_gdps_en
+                hreflang: en-CA
         providers:
-            - type: coverage
-              name: rasterio
-              data: tests/data/CMC_glb_TMP_TGL_2_latlon.15x.15_2020081000_P000.grib2
-              options:
-                  DATA_ENCODING: COMPLEX_PACKING
-              format:
-                  name: GRIB2
-                  mimetype: application/x-grib2
+            -   type: coverage
+                name: rasterio
+                data: tests/data/CMC_glb_TMP_TGL_2_latlon.15x.15_2020081000_P000.grib2
+                options:
+                    DATA_ENCODING: COMPLEX_PACKING
+                format:
+                    name: GRIB2
+                    mimetype: application/x-grib2
 
     test-data:
         type: stac-collection
@@ -188,26 +188,26 @@ resources:
             - poi
             - portugal
         links:
-            - type: text/html
-              rel: canonical
-              title: information
-              href: https://github.com/geopython/pygeoapi/tree/master/tests/data
-              hreflang: en-US
+            -   type: text/html
+                rel: canonical
+                title: information
+                href: https://github.com/geopython/pygeoapi/tree/master/tests/data
+                hreflang: en-US
         extents:
             spatial:
-                bbox: [-180,-90,180,90]
+                bbox: [ -180,-90,180,90 ]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
         providers:
-            - type: stac
-              name: FileSystem
-              data: tests/data
-              file_types:
-                  - .gpkg
-                  - .sqlite
-                  - .csv
-                  - .grib2
-                  - .tif
-                  - .shp
+            -   type: stac
+                name: FileSystem
+                data: tests/data
+                file_types:
+                    - .gpkg
+                    - .sqlite
+                    - .csv
+                    - .grib2
+                    - .tif
+                    - .shp
 
     canada-metadata:
         type: collection
@@ -217,29 +217,29 @@ resources:
             - canada
             - open data
         links:
-            - type: text/html
-              rel: canonical
-              title: information
-              href: https://open.canada.ca/en/open-data
-              hreflang: en-CA
+            -   type: text/html
+                rel: canonical
+                title: information
+                href: https://open.canada.ca/en/open-data
+                hreflang: en-CA
         extents:
             spatial:
-                bbox: [-180,-90,180,90]
+                bbox: [ -180,-90,180,90 ]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
         providers:
-            - type: record
-              name: TinyDBCatalogue
-              data: tests/data/open.canada.ca/sample-records.db
-              id_field: externalId
-              time_field: record-created
-              title_field: title
+            -   type: record
+                name: TinyDBCatalogue
+                data: tests/data/open.canada.ca/sample-records.tinydb
+                id_field: externalId
+                time_field: record-created
+                title_field: title
 
     hello-world:
         type: process
         processor:
             name: HelloWorld
 
-    nrcan-geocore:
+    canadian-geospatial-platform:
         type: collection
         title: Canadian Geospatial Platform (CGP) records
         description: Canadian Geospatial Platform records (geoCore API)
@@ -250,24 +250,40 @@ resources:
             - fgp
             - cgp
         links:
-            - type: text/html
-              rel: canonical
-              title: information
-              href: https://www.nrcan.gc.ca/science-data/science-research/earth-sciences/geomatics/canadas-spatial-data-infrastruct/geospatial-communities-canada-ce/federal-geospatial-platform/11031
-              hreflang: en-CA
+            -   type: text/html
+                rel: canonical
+                title: information
+                href: https://www.nrcan.gc.ca/science-data/science-research/earth-sciences/geomatics/canadas-spatial-data-infrastruct/geospatial-communities-canada-ce/federal-geospatial-platform/11031
+                hreflang: en-CA
         extents:
             spatial:
-                bbox: [-180,-90,180,90]
+                bbox: [ -180,-90,180,90 ]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
         providers:
-            - type: record
-              name: geocore_pygeoapi.provider.cgp.GeoCoreProvider
-              data:
-                  base_url: https://hqdatl0f6d.execute-api.ca-central-1.amazonaws.com/dev
-                  mapping:
-                      # Maps provider function calls to specific endpoints
-                      query: geo
-                      get: id
-              id_field: externalId
-              time_field: record-created
-              title_field: title
+            -   type: record
+                name: geocore_pygeoapi.provider.cgp.GeoCoreProvider
+                data:
+                    base_url: https://hqdatl0f6d.execute-api.ca-central-1.amazonaws.com/dev
+                    mapping:
+                        # Maps provider function calls to specific endpoints
+                        query: geo
+                        get: id
+                    queryables:
+                        # geoCore does not offer a way to retrieve the queryables: define them here
+                        theme:
+                            type: string
+                            values:
+                                - administration
+                                - economy
+                                - environment
+                                - imagery
+                                - infrastructure
+                                - science
+                                - society
+                                - legal
+                                - emergency
+                        org:
+                            type: string
+                id_field: externalId
+                time_field: record-created
+                title_field: title

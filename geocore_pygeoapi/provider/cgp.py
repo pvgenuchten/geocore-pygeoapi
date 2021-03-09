@@ -3,7 +3,6 @@ import json
 import codecs
 import logging
 from re import compile
-from uuid import UUID
 from datetime import datetime
 
 import requests
@@ -24,6 +23,9 @@ JSON_REGEX = {
 DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?(\d{0,2})')  # noqa
 
 LOGGER = logging.getLogger(__name__)
+
+# Set language globally (TODO)
+lang = "en"
 
 
 class GeoCoreProvider(BaseProvider):
@@ -52,6 +54,10 @@ class GeoCoreProvider(BaseProvider):
             LOGGER.warning(f'No endpoint mapping found for {self.name} provider: using defaults')  # noqa
         self._query_url = f'{self._baseurl}{mapping.get(self.query.__name__, "geo")}'  # noqa
         self._get_url = f'{self._baseurl}{mapping.get(self.get.__name__, "id")}'
+
+        LOGGER.debug('get queryable field info')
+        self.fields = self.data.get('queryables', {})
+        LOGGER.debug(f'Queryables: {self.fields}')
 
     @property
     def _iswin(self):
@@ -86,17 +92,14 @@ class GeoCoreProvider(BaseProvider):
             result = json.loads(json_str)
         except json.JSONDecodeError as err:
             LOGGER.error('Failed to parse JSON response', exc_info=err)
-        finally:
             return result
 
-    @staticmethod
-    def _valid_id(identifier):
-        """ Returns True if the given identifier is a valid UUID. """
-        try:
-            str(UUID(identifier))
-        except (TypeError, ValueError, AttributeError):
-            return False
-        return True
+        # check if geoCore's response has Items or an error
+        if 'Items' not in result:
+            error = result.get('errorMessage', 'missing Items object')
+            raise ProviderInvalidQueryError(error)
+
+        return result
 
     @staticmethod
     def _asisodate(value):
@@ -128,7 +131,6 @@ class GeoCoreProvider(BaseProvider):
             raise ProviderConnectionError(
                 f'failed to connect to {response.url if response else url}')
 
-        LOGGER.debug(response.text)
         return self._parse_json(response.text)
 
     @staticmethod
@@ -211,9 +213,12 @@ class GeoCoreProvider(BaseProvider):
             }
         }
 
-    def _to_geojson(self, json_obj, limit, skip_geometry=False):
+    def _to_geojson(self, json_obj, skip_geometry=False, single_feature=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
+        global lang
+
         features = []
+        num_matched = None
 
         for item in json_obj.get('Items', []):
             feature = {
@@ -223,11 +228,14 @@ class GeoCoreProvider(BaseProvider):
 
             # Get ID and validate it
             id_ = item.pop('id', None)
-            if not self._valid_id(id_):
-                LOGGER.warning(f'skipped record with ID {id_}: not a UUID')
+            if id_ is None:
+                LOGGER.warning(f'skipped record without ID')
                 continue
             feature['id'] = id_
             item['externalId'] = id_
+
+            # Pop 'total' value for numberMatched property (for paging)
+            num_matched = int(item.pop('total', 0))
 
             # Rename and set/fix date properties
             date_created = self._asisodate(item.get('created'))
@@ -261,23 +269,55 @@ class GeoCoreProvider(BaseProvider):
                 LOGGER.debug('record has no coordinates: '
                              'cannot set geometry and extent')
 
+            # Remove options and convert to associations
+            options = item.pop('options', [])
+            for opt in options:
+                url = opt.get('url')
+                title = opt.get('name', {}).get(lang)
+                type_ = opt.get('protocol')
+                rel = 'item'
+                i18n = lang
+                desc = opt.get('description', {}).get(lang, '')
+                if desc and desc.count(';') == 2:
+                    # TODO: retrieve mime type from URL or lookup
+                    rel, type_, i18n = desc.split(';')
+                if not (type_ and url):
+                    # Do not add links without a type or URL
+                    continue
+                lnk = {
+                    'href': url,
+                    'type': type_,
+                    'rel': rel,
+                    'title': title,
+                    'hreflang': i18n.lower()
+                }
+                item.setdefault('associations', []).append(lnk)
+
+            # Remove graphicOverview and promote/set first thumbnailUrl
+            try:
+                url = item.pop('graphicOverview')[0].get('overviewfilename')
+                item['thumbnailUrl'] = url
+            except (KeyError, IndexError, AttributeError):
+                LOGGER.warning('could not find overview thumbnail')
+
             # Set properties and add to feature list
             feature['properties'] = item
             features.append(feature)
 
-        if not features:
-            raise ProviderNoDataError('query returned nothing')
-        elif limit == 1:
+        if features and single_feature == 1:
             LOGGER.debug('returning single feature')
             return features[0]
 
         LOGGER.debug('returning feature collection')
-        return {
+        collection = {
             'type': 'FeatureCollection',
             'features': features,
-            'numberMatched': limit,
-            'numberReturned': len(features),
+            'numberReturned': len(features)
         }
+        LOGGER.debug(f'provider said there are {num_matched} matches')
+        if num_matched:
+            collection['numberMatched'] = num_matched
+        return collection
 
     def query(self, startindex=0, limit=10, resulttype='results',
               bbox=[], datetime_=None, properties=[], sortby=[],
@@ -321,26 +361,31 @@ class GeoCoreProvider(BaseProvider):
         params['min'] = startindex + 1
         params['max'] = startindex + limit
 
+        # Set queryables
+        if properties:
+            LOGGER.debug(f'Adding queryables: {properties}')
+            for k, v in properties:
+                params[k] = v
+
+        # Set text-based search
+        if q:
+            LOGGER.debug(f'Adding free-text search: {q}')
+            params['keyword'] = q
+
         LOGGER.debug(f'querying {self._query_url}')
         json_obj = self._request_json(self._query_url, params)
 
-        LOGGER.debug(f'turn geoCore JSON into GeoJSON')
-        return self._to_geojson(json_obj, limit, skip_geometry)
+        LOGGER.debug('turn geoCore JSON into GeoJSON')
+        return self._to_geojson(json_obj, skip_geometry)
 
     def get(self, identifier):
         """ Request a single geoCore record by ID.
 
-        :param identifier:  The UUID of the record to retrieve.
+        :param identifier:  The ID of the record to retrieve.
 
         :returns:   dict containing 1 GeoJSON feature
-        :raises:    ProviderInvalidQueryError if identifier is invalid
-                    ProviderItemNotFoundError if identifier was not found
+        :raises:    ProviderItemNotFoundError if identifier was not found
         """
-        LOGGER.debug('validating identifier')
-        if not self._valid_id(identifier):
-            raise ProviderInvalidQueryError(
-                f'{identifier} is not a valid UUID identifier')
-
         params = {
             'id': identifier
         }
@@ -351,8 +396,8 @@ class GeoCoreProvider(BaseProvider):
         if not json_obj.get('Items', []):
             raise ProviderItemNotFoundError(f'record id {identifier} not found')
 
-        LOGGER.debug(f'turn geoCore JSON into GeoJSON')
-        return self._to_geojson(json_obj, 1)
+        LOGGER.debug('turn geoCore JSON into GeoJSON')
+        return self._to_geojson(json_obj, single_feature=True)
 
     def __repr__(self):
         return f'<{self.__class__.__name__}> {self.data}'
