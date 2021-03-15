@@ -7,6 +7,7 @@ from datetime import datetime
 
 import requests
 
+from pygeoapi import l10n
 from pygeoapi.provider.base import (
     BaseProvider,
     ProviderQueryError,
@@ -24,9 +25,6 @@ DATE_REGEX = compile(r'(\d{4})-?(\d{0,2})-?(\d{0,2})[T| ]?(\d{0,2}):?(\d{0,2}):?
 
 LOGGER = logging.getLogger(__name__)
 
-# Set language globally (TODO)
-lang = "en"
-
 
 class GeoCoreProvider(BaseProvider):
     """ Provider for the Canadian Federal Geospatial Platform (FGP).
@@ -34,8 +32,8 @@ class GeoCoreProvider(BaseProvider):
     Queries NRCan's geoCore API.
     """
 
-    def __init__(self, provider_def):
-        super().__init__(provider_def)
+    def __init__(self, provider_def, requested_locale=None):
+        super().__init__(provider_def, requested_locale)
 
         LOGGER.debug('setting geoCore base URL')
         try:
@@ -119,6 +117,10 @@ class GeoCoreProvider(BaseProvider):
     def _request_json(self, url, params):
         """ Performs a GET request on `url` and returns the JSON response. """
         response = None
+        if 'lang' not in params and self.locale:
+            # Add language parameter, if missing (geoCore wants ISO 639-1 codes)  # noqa
+            LOGGER.debug(f"Requesting geoCore response in '{self.locale.language}'")  # noqa
+            params['lang'] = self.locale.language
         try:
             response = requests.get(url, params)
             response.raise_for_status()
@@ -215,8 +217,6 @@ class GeoCoreProvider(BaseProvider):
 
     def _to_geojson(self, json_obj, skip_geometry=False, single_feature=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
-        global lang
-
         features = []
         num_matched = None
 
@@ -273,11 +273,11 @@ class GeoCoreProvider(BaseProvider):
             options = item.pop('options', [])
             for opt in options:
                 url = opt.get('url')
-                title = opt.get('name', {}).get(lang)
+                title = l10n.translate(opt.get('name'), self.locale)
                 type_ = opt.get('protocol')
                 rel = 'item'
-                i18n = lang
-                desc = opt.get('description', {}).get(lang, '')
+                i18n = self.locale
+                desc = l10n.translate(opt.get('description'), self.locale)
                 if desc and desc.count(';') == 2:
                     # TODO: retrieve mime type from URL or lookup
                     rel, type_, i18n = desc.split(';')
@@ -289,7 +289,8 @@ class GeoCoreProvider(BaseProvider):
                     'type': type_,
                     'rel': rel,
                     'title': title,
-                    'hreflang': i18n.lower()
+                    'hreflang': l10n.locale2str(i18n) if
+                    isinstance(i18n, l10n.Locale) else i18n
                 }
                 item.setdefault('associations', []).append(lnk)
 

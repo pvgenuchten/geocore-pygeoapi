@@ -34,34 +34,46 @@ server:
     url: http://localhost:5000
     mimetype: application/json; charset=UTF-8
     encoding: utf-8
-    language: en-US
+    languages:
+        # First language is the default language
+        - en-CA
+        - fr-CA
     # cors: true
     pretty_print: true
     limit: 10
     # templates:
-    # path: /path/to/Jinja2/templates
-    # static: /path/to/static/folder # css/js/img
+      # path: /path/to/Jinja2/templates
+      # static: /path/to/static/folder # css/js/img
     map:
         url: https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png
         attribution: '<a href="https://wikimediafoundation.org/wiki/Maps_Terms_of_Use">Wikimedia maps</a> | Map data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
-    #    manager:
-    #        name: TinyDB
-    #        connection: /tmp/pygeoapi-process-manager.db
-    #        output_dir: /tmp/
+#    manager:
+#        name: TinyDB
+#        connection: /tmp/pygeoapi-process-manager.db
+#        output_dir: /tmp/
     # ogc_schemas_location: /opt/schemas.opengis.net
 
 logging:
-    level: ERROR
+    level: DEBUG
     #logfile: /tmp/pygeoapi.log
 
 metadata:
     identification:
-        title: pygeoapi default instance
-        description: pygeoapi provides an API to geospatial data
+        title:
+            en: pygeoapi default instance
+            fr: instance par défaut de pygeoapi
+        description:
+            en: pygeoapi provides an API to geospatial data
+            fr: pygeoapi fournit une API aux données géospatiales
         keywords:
-            - geospatial
-            - data
-            - api
+            en:
+                - geospatial
+                - data
+                - api
+            fr:
+                - géospatiale
+                - données
+                - api
         keywords_type: theme
         terms_of_service: https://creativecommons.org/licenses/by/4.0/
         url: http://example.org
@@ -241,8 +253,12 @@ resources:
 
     canadian-geospatial-platform:
         type: collection
-        title: Canadian Geospatial Platform (CGP) records
-        description: Canadian Geospatial Platform records (geoCore API)
+        title:
+            en: Canadian Geospatial Platform (CGP) records
+            fr: Enregistrements Plateforme Géospatiale Canadienne (PGC)
+        description:
+            en: Canadian Geospatial Platform records (geoCore API)
+            fr: Enregistrements Plateforme Géospatiale Canadienne (API geoCore)
         keywords:
             - canada
             - geocore
@@ -284,6 +300,9 @@ resources:
                                 - emergency
                         org:
                             type: string
+                languages:
+                    - en-CA
+                    - fr-CA
                 id_field: externalId
                 time_field: record-created
                 title_field: title
