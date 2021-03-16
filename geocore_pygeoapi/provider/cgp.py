@@ -12,7 +12,6 @@ from pygeoapi.provider.base import (
     BaseProvider,
     ProviderQueryError,
     ProviderConnectionError,
-    ProviderNoDataError,
     ProviderInvalidQueryError,
     ProviderItemNotFoundError
 )
@@ -102,7 +101,7 @@ class GeoCoreProvider(BaseProvider):
     @staticmethod
     def _asisodate(value):
         """ Returns an ISO formatted timestamp (with Z suffix) from a string.
-        If the given value can't be turned into a date, `None` will be returned.
+        If the value can't be turned into a date, `None` will be returned.
         """
         try:
             matches = DATE_REGEX.match(value)
@@ -272,12 +271,13 @@ class GeoCoreProvider(BaseProvider):
             # Remove options and convert to associations
             options = item.pop('options', [])
             for opt in options:
+                opt = l10n.translate_dict(opt, self.locale)
                 url = opt.get('url')
-                title = l10n.translate(opt.get('name'), self.locale)
+                title = opt.get('name')
                 type_ = opt.get('protocol')
                 rel = 'item'
                 i18n = self.locale
-                desc = l10n.translate(opt.get('description'), self.locale)
+                desc = opt.get('description')
                 if desc and desc.count(';') == 2:
                     # TODO: retrieve mime type from URL or lookup
                     rel, type_, i18n = desc.split(';')
@@ -300,6 +300,22 @@ class GeoCoreProvider(BaseProvider):
                 item['thumbnailUrl'] = url
             except (KeyError, IndexError, AttributeError):
                 LOGGER.warning('could not find overview thumbnail')
+
+            # Translate contacts, credits and distributors lists
+            for prop in ('contact', 'credits', 'distributor'):
+                values = item.get(prop, [])
+                if values:
+                    item[prop] = [l10n.translate_dict(v, self.locale)
+                                  for v in values]
+
+            # Translate known concatenated "en; fr" values
+            # TODO: improve this on geoCore side?
+            for prop in ('spatialRepresentation', 'type', 'status',
+                         'maintenance', 'accessConstraints', 'characterSet'):
+                values = [v.strip() for v in item.get(prop, '').split(';')]
+                if len(values) != 2:
+                    continue
+                item[prop] = values[0 if self.locale.language == 'en' else 1]
 
             # Set properties and add to feature list
             feature['properties'] = item
@@ -395,7 +411,7 @@ class GeoCoreProvider(BaseProvider):
         json_obj = self._request_json(self._get_url, params)
 
         if not json_obj.get('Items', []):
-            raise ProviderItemNotFoundError(f'record id {identifier} not found')
+            raise ProviderItemNotFoundError(f'record id {identifier} not found')  # noqa
 
         LOGGER.debug('turn geoCore JSON into GeoJSON')
         return self._to_geojson(json_obj, single_feature=True)
