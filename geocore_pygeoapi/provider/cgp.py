@@ -271,7 +271,7 @@ class GeoCoreProvider(BaseProvider):
             # Remove options and convert to associations
             options = item.pop('options', [])
             for opt in options:
-                opt = l10n.translate_dict(opt, self.locale)
+                opt = l10n.translate_struct(opt, self.locale)
                 url = opt.get('url')
                 title = opt.get('name')
                 type_ = opt.get('protocol')
@@ -305,11 +305,10 @@ class GeoCoreProvider(BaseProvider):
             for prop in ('contact', 'credits', 'distributor'):
                 values = item.get(prop, [])
                 if values:
-                    item[prop] = [l10n.translate_dict(v, self.locale)
-                                  for v in values]
+                    item[prop] = l10n.translate_struct(values, self.locale)
 
             # Translate known concatenated "en; fr" values
-            # TODO: improve this on geoCore side?
+            # TODO: add more props if needed, improve on geoCore side
             for prop in ('spatialRepresentation', 'type', 'status',
                          'maintenance', 'accessConstraints', 'characterSet'):
                 values = [v.strip() for v in item.get(prop, '').split(';')]
